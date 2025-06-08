@@ -1,0 +1,117 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+import seaborn as sns
+import numpy as np
+
+# Load the dataset
+df = pd.read_csv('bronze.csv')
+
+# Select features (chemical elements) and target (GROUP)
+chemical_elements = ["Cu", "Sn", "Pb", "Zn", "Au", "Ag", "As", "Sb"]
+df_selected = df[chemical_elements + ["GROUP"]].copy()
+
+# Separate features (X) and target (y)
+X = df_selected[chemical_elements]
+y = df_selected['GROUP']
+
+# Handle missing values by filling with column mean
+X.fillna(X.mean(), inplace=True)
+
+# Standardize features
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Split data into training and test sets
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42, stratify=y)
+
+# Initialize and train the RandomForestClassifier model
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# Make predictions on the test set
+y_pred = model.predict(X_test)
+
+# Print model evaluation metrics
+print("--- RandomForestClassifier Model Evaluation ---")
+print("Accuracy Score:", accuracy_score(y_test, y_pred))
+print("Classification Report:\n", classification_report(y_test, y_pred))
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+
+# Visualize the Confusion Matrix
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+            xticklabels=np.unique(y), yticklabels=np.unique(y))
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.title('Confusion Matrix for RandomForestClassifier')
+plt.show()
+
+# Print feature importances
+print("\nRandomForestClassifier Feature Importances:")
+feature_importances_df = pd.DataFrame({'Feature': chemical_elements, 'Importance': model.feature_importances_})
+feature_importances_df = feature_importances_df.sort_values(by='Importance', ascending=False)
+print(feature_importances_df)
+
+
+### Individual Item Prediction Visualizations
+
+# Inverse transform scaled test data for original values
+X_test_original = scaler.inverse_transform(X_test)
+
+# Create DataFrame for plotting results
+results_df = pd.DataFrame(X_test_original, columns=chemical_elements)
+results_df['Predicted_GROUP'] = y_pred
+results_df['True_GROUP'] = y_test.reset_index(drop=True)
+results_df['Is_Correct'] = (results_df['Predicted_GROUP'] == results_df['True_GROUP'])
+
+# Scatter plot: Actual vs. Predicted Groups (Cu vs. Sn)
+plt.figure(figsize=(12, 9))
+sns.scatterplot(x='Cu', y='Sn',
+                hue='True_GROUP',
+                style='Predicted_GROUP',
+                data=results_df,
+                palette='tab10', s=150, alpha=0.8,
+                markers=True)
+plt.title('Actual vs. Predicted Groups (Cu vs. Sn) - RandomForest')
+plt.xlabel('Cu Content (%)')
+plt.ylabel('Sn Content (%)')
+plt.grid(True)
+plt.legend(title='Group (Color: Actual, Style: Predicted)', bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.tight_layout()
+plt.show()
+
+# Scatter plot: Actual vs. Predicted Groups (Pb vs. Zn)
+plt.figure(figsize=(12, 9))
+sns.scatterplot(x='Pb', y='Zn',
+                hue='True_GROUP',
+                style='Predicted_GROUP',
+                data=results_df,
+                palette='tab10', s=150, alpha=0.8,
+                markers=True)
+plt.title('Actual vs. Predicted Groups (Pb vs. Zn) - RandomForest')
+plt.xlabel('Pb Content (%)')
+plt.ylabel('Zn Content (%)')
+plt.grid(True)
+plt.legend(title='Group (Color: Actual, Style: Predicted)', bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.tight_layout()
+plt.show()
+
+# Scatter plot: Actual Groups with Correctness Indication (Cu vs. Sn)
+plt.figure(figsize=(12, 9))
+sns.scatterplot(x='Cu', y='Sn',
+                hue='True_GROUP',
+                style='Is_Correct',
+                data=results_df,
+                palette='tab10', s=150, alpha=0.8)
+plt.title('Actual Groups (Cu vs. Sn) with Correctness Indication - RandomForest')
+plt.xlabel('Cu Content (%)')
+plt.ylabel('Sn Content (%)')
+plt.grid(True)
+plt.legend(title='Actual Group (Marker: Correct?)', bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.tight_layout()
+plt.show()
